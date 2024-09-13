@@ -1,0 +1,232 @@
+---
+title:
+author: 
+date: 
+output: 
+  pdf_document:
+    fig_caption: yes
+    latex_engine: xelatex
+    includes:
+      in_header: preamble.tex
+fontsize: 12pt
+geometry: "a4paper, margin=2.5 cm"
+---
+
+# Code with comments
+
+```{r install_packages, eval=TRUE, include=TRUE}
+
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+install.packages("remotes")
+remotes::install_github("facebookexperimental/Robyn/R")
+library(Robyn)
+
+set.seed(123)
+
+Sys.setenv(R_FUTURE_FORK_ENABLE = "true")
+options(future.fork.enable = TRUE)
+
+install.packages("reticulate")
+library(reticulate)
+virtualenv_create("r-reticulate")
+use_virtualenv("r-reticulate", required = TRUE)
+py_install("nevergrad", pip = TRUE)
+
+```
+
+```{r import_data, eval=TRUE, include=TRUE}
+
+install.packages("readxl")
+library(readxl)
+
+my_data <- read_excel(
+  "C:/Users/margh/OneDrive/Desktop/universita/tesi/dati/mmm_dataset.xlsx", 
+  sheet = "mmm_dataset")
+
+head(my_data)
+
+data("dt_prophet_holidays")
+
+head(dt_prophet_holidays)
+
+robyn_object <- "C:/Users/margh/OneDrive/Desktop/universita/tesi/rstudio.RDS"
+
+```
+
+```{r input_def, eval=TRUE, include=TRUE}
+
+InputCollect <- robyn_inputs(
+
+    dt_input <- read_excel(
+      "C:/Users/margh/OneDrive/Desktop/universita/tesi/dati/mmm_dataset.xlsx", 
+      sheet = "mmm_dataset"),
+
+    dt_holidays = dt_prophet_holidays,
+
+    date_var = "DATE",
+
+    dep_var = "revenue",
+    dep_var_type = "revenue", 
+    # Only two options: revenue ($) or conversion (n of sales)
+
+    prophet_vars = c("trend", "season", "holiday"),
+    prophet_signs = c("default","default","default"), 
+    # Default because not sure if trend, season, holidays increase or decrease sales
+    prophet_country = "IT", # Italian company so country = Italy
+
+    context_vars = c("promo_1","promo_3","black_friday" ), 
+    # Other factors that may influence our sales, 
+    # but no money is being spent on them (price, competitors' sales) 
+    context_signs = c("positive", "positive", "default"),
+
+    paid_media_spends =  
+      c("online_search_spending",
+        "online_display_awereness_spending",
+        "online_display_performance_spending",
+        "native_advertising_spending",
+        "retargeting_spending", 
+        "lead_generation_spending", 
+        "smart_tv_spending", 
+        "online_social_spending", 
+        "radio_spending", 
+        "tv_spending"),
+    
+    paid_media_vars =
+      c("online_search_spending",
+        "online_display_awereness_spending",
+        "online_display_performance_spending",
+        "native_advertising_spending",
+        "retargeting_spending", 
+        "lead_generation_spending", 
+        "smart_tv_spending", 
+        "online_social_spending", 
+        "radio_spending", 
+        "tv_spending"), 
+    # Since I don't have information about impression or clicks, I just specify spends again 
+    
+    paid_media_signs = c("positive","positive","positive","positive", 
+                         "positive","positive","positive","positive",
+                         "positive","positive"),
+
+    organic_vars = c(), 
+    organic_signs = c(),
+    
+    factor_vars = c(), 
+
+    cores = 8,
+
+    window_start = "2020-01-01", 
+    window_end = "2023-02-20", # Robyn uses all historical data to understand seasonality, but we can specify a recent window that better describes the business
+
+    adstock = "geometric",
+    iterations = 2000, # N of iterations per trial recommended for geometric ad stocks
+
+    intercept_sign = "non_negative",
+    nevergrad_algo = "TwoPointDE",
+    
+    trials = 5 # N of trails recommended without calibration
+  )
+
+plot_adstock(plot=TRUE)
+plot_saturation(plot=TRUE)
+
+```
+
+```{r hyperparameters_def, eval=TRUE, include=TRUE}
+hyper_names(adstock = InputCollect$adstock, all_media = InputCollect$all_media) 
+
+hyperparameters <- list(
+
+    lead_generation_spending_alphas = c(0.5,3),
+    lead_generation_spending_gammas = c(0.3,1),
+    lead_generation_spending_thetas = c(0.3,0.8),
+
+    native_advertising_spending_alphas = c(0.5,3),
+    native_advertising_spending_gammas = c(0.3,1),
+    native_advertising_spending_thetas = c(0.3,0.8),
+
+    online_display_awereness_spending_alphas = c(0.5,3),
+    online_display_awereness_spending_gammas = c(0.3,1),
+    online_display_awereness_spending_thetas = c(0.3,0.8),
+
+    online_display_performance_spending_alphas = c(0.5,3),
+    online_display_performance_spending_gammas = c(0.3,1),
+    online_display_performance_spending_thetas = c(0.3,0.8),
+
+    online_search_spending_alphas = c(0.5,3),
+    online_search_spending_gammas = c(0.3,1),
+    online_search_spending_thetas = c(0.3,0.8),
+
+    online_social_spending_alphas = c(0.5,3),
+    online_social_spending_gammas = c(0.3,1),
+    online_social_spending_thetas = c(0.3,0.8),
+
+    radio_spending_alphas = c(0.5,3),
+    radio_spending_gammas = c(0.3,1),
+    radio_spending_thetas = c(0.3,0.8),
+
+    retargeting_spending_alphas = c(0.5,3),
+    retargeting_spending_gammas = c(0.3,1),
+    retargeting_spending_thetas = c(0.3,0.8),
+
+    smart_tv_spending_alphas = c(0.5,3),
+    smart_tv_spending_gammas = c(0.3,1),
+    smart_tv_spending_thetas = c(0.3,0.8),
+
+    tv_spending_alphas = c(0.5,3),
+    tv_spending_gammas = c(0.3,1),
+    tv_spending_thetas = c(0.3,0.8),
+    
+    train_size = c(0.5, 0.8)
+)
+
+InputCollect <- robyn_inputs(InputCollect = InputCollect, hyperparameters = hyperparameters)
+
+```
+
+```{r output, eval=TRUE, include=TRUE}
+OutputModels <- robyn_run(
+  InputCollect = InputCollect,
+  outputs = TRUE
+)
+
+```
+
+```{r output_results, eval=TRUE, include=TRUE}
+
+OutputCollect <- robyn_outputs(
+  
+  InputCollect, 
+  OutputModels,
+  
+  pareto_fronts = 1, # Outputs the smallest number of pareto-front models
+  
+  csv_out = "pareto", 
+  clusters = TRUE, 
+  
+  plot_pareto = TRUE, 
+  plot_folder = "C:/Users/margh/OneDrive/Desktop/universita/tesi/rstudio"
+)
+
+```
+
+```{r budget_allocator_run, eval=TRUE, include=TRUE}
+
+AllocatorCollect <- robyn_allocator(
+  
+  InputCollect = InputCollect,
+  OutputCollect = OutputCollect,
+  
+  select_model = "3_182_6",
+  
+  scenario = "max_historical_response", # This option returns the budget allocation that maximizes revenue, without changing the total spend 
+  
+  channel_constr_low = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3), 
+  channel_constr_up = c(1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8), 
+  # Bounds in percentage of the allocation with respect to historical data 
+  
+  date_range = c("2020-01-01","2023-02-20")
+)
+
+```
