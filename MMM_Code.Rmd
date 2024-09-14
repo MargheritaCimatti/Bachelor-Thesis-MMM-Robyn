@@ -1,7 +1,7 @@
 ---
-title:
-author: 
-date: 
+title: Code for Marketing Mix Modeling
+author: Margherita Cimatti 
+date: 14.09.24
 output: 
   pdf_document:
     fig_caption: yes
